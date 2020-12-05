@@ -31,9 +31,19 @@ class Symbol(object):
         self.lines = {}
 
     def dump(self):
+
+        reverse_lines = {}
+
+        for offset, line in self.lines.items():
+            e = reverse_lines.get(line, None)
+            if e is None:
+                e = []
+                reverse_lines[line] = e
+            e.append(offset)
+
         o = {
             "file_name": self.file_name,
-            "lines": self.lines
+            "lines": reverse_lines
         }
 
         sections = []
@@ -46,10 +56,14 @@ class Symbol(object):
 
     def load(self, o):
         self.file_name = o["file_name"]
-        self.lines = {
-            int(key): value
-            for key, value in o["lines"].items()
-        }
+
+        self.lines = {}
+        reverse_lines = o["lines"]
+
+        for line, offsets in reverse_lines.items():
+            for offset in offsets:
+                self.lines[offset] = line
+
         self.sections = []
 
         for section in o["sections"]:
@@ -75,17 +89,19 @@ class Symbol(object):
 
 
 class Z88DKList(object):
-    LINE_PATTERN = re.compile("^[0-9]+\\s+([0-9A-F]+)\\s+(.+)$")
-    C_LINE = re.compile("^C_LINE\\s+([0-9]+),\"([\\w.]+):?:?.*\"$")
+    LINE_PATTERN = re.compile("^([0-9]+)\\s+([0-9A-F]+)\\s+(.+)$")
+    C_LINE = re.compile("^C_LINE\\s+([0-9]+),\"([\\w./\\\\]+):?:?.*\"$")
     NEW_SYMBOL = re.compile("^\\.(\\w+)$")
     NEW_TMP_LABEL = re.compile("^\\.i_.*$")
-    CODE = re.compile("^([0-9A-F\\s]+)\\s.*$")
+    CODE = re.compile("^([0-9A-F ]+)\\t.*$")
+    SECTION = re.compile("^SECTION\\s+([\\w]+).*$")
 
     def __init__(self):
 
         self.current_symbol = None
         self.current_line = None
         self.current_file = None
+        self.current_section = None
         self.symbols = {}
 
     def parse(self, path):
@@ -105,10 +121,11 @@ class Z88DKList(object):
                         break
                     m = Z88DKList.LINE_PATTERN.match(line)
                     if m:
-                        offset = int(m.group(1), 16)
-                        payload = m.group(2)
+                        line_number = int(m.group(1))
+                        offset = int(m.group(2), 16)
+                        payload = m.group(3)
 
-                        self.process_line(offset, payload)
+                        self.process_line(line_number, offset, payload)
 
                 self.cleanup_symbol()
 
@@ -134,9 +151,22 @@ class Z88DKList(object):
         if self.current_symbol:
             self.current_symbol.cleanup()
 
-    def process_line(self, offset, payload):
+        self.current_symbol = None
+        self.current_file = None
+        self.current_line = None
+
+    def process_line(self, line_number, offset, payload):
         if Z88DKList.NEW_TMP_LABEL.match(payload):
             # ignore labels
+            return
+
+        as_section = Z88DKList.SECTION.match(payload)
+        if as_section:
+            self.current_section = as_section.group(1)
+            self.cleanup_symbol()
+            return
+
+        if self.current_section != "code_compiler":
             return
 
         as_symbol = Z88DKList.NEW_SYMBOL.match(payload)
@@ -152,13 +182,17 @@ class Z88DKList(object):
         if self.current_symbol is None:
             return
 
+        self.current_line = line_number
+        self.current_symbol.line(offset, line_number)
+
         as_line = Z88DKList.C_LINE.match(payload)
         if as_line:
-            self.current_line = int(as_line.group(1))
-            self.current_symbol.line(offset, self.current_line)
             if self.current_file is None:
                 self.current_file = as_line.group(2)
                 self.current_symbol.file_name = self.current_file
+            return
+
+        if self.current_file is None:
             return
 
         as_code = Z88DKList.CODE.match(payload)
