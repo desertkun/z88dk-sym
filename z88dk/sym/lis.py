@@ -62,7 +62,7 @@ class Symbol(object):
 
         for line, offsets in reverse_lines.items():
             for offset in offsets:
-                self.lines[offset] = line
+                self.lines[offset] = int(line)
 
         self.sections = []
 

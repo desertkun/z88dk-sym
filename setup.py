@@ -6,7 +6,7 @@ except ImportError:
 
 setup(
     name='z88dk-sym',
-    version='0.1.1',
+    version='0.1.2',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     packages=[

@@ -28,6 +28,24 @@ class Z88DKAbsoluteSymbol(object):
                 return sec, self.lines[code]
         return None
 
+    def match_source(self, source, line):
+        if self.file_name != source:
+            return None
+
+        for addr, l in self.lines.items():
+            if line == l:
+                return addr
+        return None
+
+    def match_symbol(self, symbol):
+        if self.name != symbol:
+            return None
+
+        for addr, l in self.lines.items():
+            return addr
+
+        return None
+
     def enhance(self, sym):
         self.file_name = sym.file_name
         local = sym.sections[0].offset
@@ -75,9 +93,21 @@ class Z88DKMap(object):
             if our:
                 our.enhance(sym)
 
-    def locate(self, addr):
+    def locate_source(self, addr):
         for name, sym in self.symbols.items():
             m = sym.match(addr)
+            if m:
+                return m
+
+    def locate_addr(self, source, line):
+        for name, sym in self.symbols.items():
+            m = sym.match_source(source, line)
+            if m:
+                return m
+
+    def locate_symbol_addr(self, symbol):
+        for name, sym in self.symbols.items():
+            m = sym.match_symbol(symbol)
             if m:
                 return m
 
