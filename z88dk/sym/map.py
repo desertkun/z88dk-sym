@@ -48,6 +48,10 @@ class Z88DKAbsoluteSymbol(object):
 
     def enhance(self, sym):
         self.file_name = sym.file_name
+
+        if len(sym.sections) == 0:
+            return
+
         local = sym.sections[0].offset
 
         for offset, line in sym.lines.items():
