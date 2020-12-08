@@ -116,6 +116,6 @@ class Z88DKMap(object):
                 return m
 
     def process_line(self, symbol_name, address, kind, visibility, file, src, file_name):
-        if kind == "addr" and src == "code_compiler" and visibility == "public":
+        if kind == "addr" and src == "code_compiler":
             decoded_addr = int(address, 16)
             self.symbols[symbol_name] = Z88DKAbsoluteSymbol(symbol_name, decoded_addr)
